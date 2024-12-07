@@ -1,6 +1,6 @@
 # Model Description
 
-This machine translation model translates text from Dyula to French. It is built on a `fairseq` model architecture proposed by [Facebook](https://fairseq.readthedocs.io/en/latest/). The architecture was replicated using a Dyula-French translation dataset created by data354. The model was later quantized into int8 and exported to [ctranslate2](https://opennmt.net/CTranslate2/) format for fast inference. The model is designed to support a variety of educational applications by providing accurate and contextually relevant translations between these languages.
+This machine translation model translates text from Dyula to French. It is built on a `fairseq` model architecture proposed by [Facebook](https://fairseq.readthedocs.io/en/latest/). The architecture was replicated using a Dyula-French translation dataset created by [data354](https://data354.com/en/). The model was later quantized into int8 and exported to [ctranslate2](https://opennmt.net/CTranslate2/) format for fast inference. The model is designed to support a variety of educational applications by providing accurate and contextually relevant translations between these languages.
 
 ## Intended Use
 
