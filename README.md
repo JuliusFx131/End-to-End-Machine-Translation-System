@@ -1,134 +1,88 @@
-# Model Overview
+# Model Description
 
-Model was developed for machine [translation MLops challenge](https://zindi.africa/competitions/melio-mlops-competition) to translate Dyula to French.
+This machine translation model translates text from Dyula to French. It is built on a `fairseq` model architecture proposed by [Facebook](https://fairseq.readthedocs.io/en/latest/). The architecture was replicated using a Dyula-French translation dataset created by data354. The model was later quantized into int8 and exported to [ctranslate2](https://opennmt.net/CTranslate2/) format for fast inference. The model is designed to support a variety of educational applications by providing accurate and contextually relevant translations between these languages.
 
-# Model Name
+## Intended Use
 
-model_name: dyula_fr_translation
-version: 0.01
+The model is specifically designed to support **AI Student Learning Assistant (AISLA)**, a free educational tool aimed at helping students learn and communicate in their native language.
 
-# Model Details
-Model is a neural machine translation transformer model using TensorFlow. Model was trained using [openNMT-tf](https://github.com/OpenNMT/OpenNMT-tf) toolkit.
- OpenNMT-tf-2.32.0
+The model is particularly valuable for enhancing educational accessibility for Dyula-speaking students by enabling reliable translations from Dyula to French. It is intended to be integrated into platforms like Discord to provide seamless support within educational environments.
 
-Tokenization and detokenization was done using sentencepiece bpe model.
+# Deployment
 
-# Model Date
-1st September 2024
+This folder contains the resources required for deploying the trained model onto Highwind.
 
-# Model Type
-TensorFlow Transformer Model converted to [ctranslate2](https://opennmt.net/CTranslate2/), a library for efficient inference with Transformer models. 
+## Usage
 
-# Basic Model Use
+> All commands below are run from the deployment directory.
 
-```python 
-pip install ctranslate2 sentencepiece
+### Building the Model Image
 
-import ctranslate2
-import sentencepiece as spm
+This step builds the Kserve predictor image that contains the model.
 
-# Load the SentencePiece tokenizers
-dyu_processor = spm.SentencePieceProcessor(model_file="path/to/source_tokenizer.model")
-fr_processor = spm.SentencePieceProcessor(model_file="path/to/target_tokenizer.model")
+1. Ensure the trained model folder `model_dir` contains:
+    - `model.bin` (the model itself)
+    - `config.json` (model configuration file)
+    - `combined_model_2000.model` (sentence piece model for tokenization)
+    - `shared_vocabulary.json` (shared vocabulary)
 
-# Load the CTranslate2 model
-translator = ctranslate2.Translator("path/to/ctranslate2_model", device="cpu")  # Use "cuda" for GPU if available
+2. The deployment folder should include:
+    - `Dockerfile` (steps to build the image)
+    - `main.py` (starts the Kserve server and runs the model for translation inference tasks)
+    - `serve-requirements.txt` (model dependencies)
 
-# Example input text in source language
-input_text = "Your input text here"
+3. Build the container locally without caching and tag it:
+    ```bash
+    docker build --no-cache -t dyula-french-seqf_8-25-5beams:latest .
+    ```
 
-# Tokenize the input text
-tokens = dyu_processor.encode(input_text, out_type=str)
+### Local Testing
 
-# Translate using the CTranslate2 model
-results = translator.translate_batch([tokens])
+1. After building the Kserve predictor image, spin it up to test the model inference:
+    ```bash
+    docker compose up -d
+    docker compose logs
+    ```
 
-# Detokenize the output using the target tokenizer
-output_tokens = results[0].hypotheses[0]
-output_text = fr_processor.decode(output_tokens)
+2. Send a payload to the model to test its response using the `curl` command to send a `POST` request with an example JSON payload.
 
-print("Translated text:", output_text)
-```
+    > Run this from another terminal (remember to navigate to this folder first)
 
-# Data 
+    Linux/Mac Bash/zsh:
+    ```bash
+    curl -X POST http://localhost:8080/v2/models/model/infer -H 'Content-Type: application/json' -d @./input.json
+    ```
 
-Model was trained using the following dataset.
+    Windows PowerShell:
+    ```PowerShell
+    $json = Get-Content -Raw -Path ./input.json
+    $response = Invoke-WebRequest -Uri http://localhost:8080/v2/models/model/infer -Method Post -ContentType 'application/json' -Body ([System.Text.Encoding]::UTF8.GetBytes($json))
+    $responseObject = $response.Content | ConvertFrom-Json
+    $responseObject | ConvertTo-Json -Depth 10
+    ```
 
-[Parallel Dyula - French Dataset for Machine Learning](https://huggingface.co/datasets/uvci/Koumankan_mt_dyu_fr)
+    Using Postman:
+    Send a `POST` request to `http://localhost:8080/v2/models/model/infer` with a JSON body:
+    ```json
+    {
+        "inputs": [
+            {
+                "name": "input-0",
+                "shape": [1],
+                "datatype": "BYTES",
+                "parameters": null,
+                "data": ["i tɔgɔ bi cogodɔ"]
+            }
+        ]
+    }
+    ```
 
-The training data was cleaned, duplicates removed and resplit. The train data folder used can found here:
-[Train data](https://drive.google.com/drive/folders/1yDDNuBBYBji0SPaLhnxPBTSS0egKQfGl?usp=sharing)
+### Deployment on Highwind
 
-[Training data (Kaggle Datasets)](https://www.kaggle.com/datasets/sitwala/dyu-fr-train-splits-v2/data) (Use Version 1)
+Once the translation is successfully generated through a POST request, proceed to deploy the model on Highwind:
 
-[Preprocessing Notebook Used to create splits](https://colab.research.google.com/drive/1UUHhGprv__nTi7VtG0ZDS2tF5Pf2H1Ew?usp=sharing)
+1. Create a new asset in Highwind and follow the push commands.
+2. Create a new use case and add the asset to it.
+3. Deploy the use case.
 
-# Training Details
-
-Training details and config specifics can be found in this [Colab Notebook](https://drive.google.com/file/d/1uFUCEc5m6yI_ya6IVis6ProN0V3ubj5X/view?usp=sharing)
-Training was done with the following dependencies using kaggle notebook on T4 x 2 GPUs. Trainining time was approximately 3 hours.
-Training Requirements:
-
-```
-tensorflow: 2.6.2
-CUDA Version: 12.4 
-OpenNMT-tf: 2.32.0
-ctranslate2: 3.18.0
-sentencepiece: 0.2.0
-```
-
-Note that the old tensorflow/cuda depedency can be difficult to obtain. The Kaggle Notebook with pinned environment has therefore been provided here:
-
-[Kaggle Notebook with pinned environment](https://www.kaggle.com/code/sitwala/zindi-train-sub-v2/notebook?scriptVersionId=197161458) (Use this for GPU Training)
-
-# Limitations and Risks
-
-The trainining dataset is not enough to provide very useful translation, training should be extended as more translation data becomes available.
-
-# HighWind Deployment
-
-For deployment to HighWind, place the folder produced from training "saved_model" in the same path as the Dockerfile and the requirements.txt provided. 
-
-requirements.txt
-```text
-kserve==0.11.2
-ctranslate2==4.3.1
-sentencepiece==0.2.0
-```
-
-Dockerfile
-```text
-FROM --platform=linux/amd64 python:3.11.8-slim
-#python:3.11.8-slim
-
-WORKDIR /app
-
-# Dependencies
-COPY ./requirements.txt .
-RUN pip install --no-cache-dir  -r requirements.txt
-
-# Trained model and definition with main script
-COPY ./saved_model /app/saved_model
-COPY ./main.py /app/main.py
-
-# Set entrypoint
-ENTRYPOINT ["python", "-m", "main"]
-```
-dcoker-compose.yml
-```text
-version: "3.9"
-services:
-  melio_predict:
-    container_name: dyu_fr
-    image: dyula_fr_translation_2:0.01
-    command: --model_name=model
-    working_dir: /app
-    ports:
-      - "80:8080"   
-```
-main.py file with inference can be found below
-
-# Submission Zip File
-Find full submission zipfile [here](https://drive.google.com/file/d/1-o9tSUPh4mUqHqouj8nIC_Ts_wlD6MWc/view?usp=drive_link)
-
-[Saved Model Files](https://drive.google.com/drive/folders/1-oUEfVMv_mE65zPU0T1J3rDJ3xMsnOYj?usp=drive_link)
+Now, the model is ready for inference through API calls!
